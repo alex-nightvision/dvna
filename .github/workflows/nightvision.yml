@@ -5,17 +5,16 @@ on:
   workflow_dispatch:
 
 env:
+  NIGHTVISION_TOKEN: ${{ secrets.NIGHTVISION_TOKEN }}
+  WEB: dvna-local
+  API: dvna-api
+  
+jobs:
   # nightvision app create -n dvna-local
   # nightvision target create -n dvna-local -u http://127.0.0.1:9090
   # nightvision auth playwright create -n dvna-local -u http://127.0.0.1:9090
   # nightvision scan -t dvna-local -a dvna-local
-  NIGHTVISION_TOKEN: ${{ secrets.NIGHTVISION_TOKEN }}
-  NIGHTVISION_TARGET: dvna-local
-  NIGHTVISION_APP: dvna-local
-  NIGHTVISION_AUTH: dvna-local
-  
-jobs:
-  test:
+  web:
     permissions:
       security-events: write
     runs-on: ubuntu-latest
@@ -30,8 +29,49 @@ jobs:
 
       - name: (3) Start the app
         run: docker run --name dvna -p 9090:9090 -d appsecco/dvna:sqlite
-        # docker-compose up -d; sleep 10
 
       - name: (4) Scan the API
-        run: nightvision scan -t ${NIGHTVISION_TARGET} -a ${NIGHTVISION_APP} > scan-results.txt
+        run: nightvision scan -t ${WEB} -a ${WEB}
+
+  # nightvision app create -n dvna-api
+  # nightvision target create -n dvna-api -u http://127.0.0.1:9090 --type api
+  # nightvision auth playwright create -n dvna-api -u http://127.0.0.1:9090
+  # nightvision swagger extract ./ -t dvna-api --lang js
+  # nightvision scan -t dvna-api -a dvna-api
+  api:
+    permissions:
+      security-events: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: (1) Clone Code
+        uses: actions/checkout@v3
+
+      - name: (2) Install NightVision
+        run: |
+            wget -c https://downloads.nightvision.net/binaries/latest/nightvision_latest_linux_amd64.tar.gz -O - | tar -xz; sudo mv nightvision /usr/local/bin/
+                    python -m pip install semgrep --user
+
+      - name: (3) Extract API documentation from code
+        run: nightvision swagger extract ./ -t ${API} --lang js
+
+      - name: (4) Start the app
+        run: docker run --name dvna -p 9090:9090 -d appsecco/dvna:sqlite
+
+      - name: (5) Scan the API
+        run: |
+          nightvision scan -t ${API} -a ${API} > scan-results.txt
+          nightvision export sarif -s "$(head -n 1 scan-results.txt)" --swagger-file openapi-spec.yml
+
+      - name: (5.5) Upload sarif documentation artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: results.sarif
+          path: results.sarif
+          retention-days: 30
+
+      - name: (6) Upload SARIF file to GitHub Security Alerts if vulnerabilities are found
+        uses: github/codeql-action/upload-sarif@v2
+        if: success()
+        with:
+          sarif_file: results.sarif
 
