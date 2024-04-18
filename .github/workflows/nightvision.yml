@@ -13,7 +13,7 @@ jobs:
   # nightvision app create -n dvna-local
   # nightvision target create -n dvna-local -u http://127.0.0.1:9090
   # nightvision auth playwright create -n dvna-local -u http://127.0.0.1:9090
-  # nightvision scan -t dvna-local -a dvna-local
+  # nightvision scan -t dvna-local -a dvna-local --auth dvna-local
   web:
     permissions:
       security-events: write
@@ -37,7 +37,7 @@ jobs:
   # nightvision target create -n dvna-api -u http://127.0.0.1:9090 --type api
   # nightvision auth playwright create -n dvna-api -u http://127.0.0.1:9090
   # nightvision swagger extract ./ -t dvna-api --lang js
-  # nightvision scan -t dvna-api -a dvna-api
+  # nightvision scan -t dvna-api -a dvna-api --auth dvna-api
   api:
     permissions:
       security-events: write
